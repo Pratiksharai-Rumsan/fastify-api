@@ -1,27 +1,46 @@
-import Fastify from 'fastify'
-import userRoutes from './modules/user/user.route'
+import Fastify, { FastifyReply, FastifyRequest } from "fastify";
+import userRoutes from "./modules/user/user.route";
+import fjwt from "@fastify/jwt";
+import { userSchemas } from "./modules/user/user.schema";
 
-const fastify = Fastify({
-  logger: true
-})
+export const server = Fastify({
+  logger: true,
+});
 
-fastify.get('/healthcheck', async function () {
-    return {status:'okay'}
+server.register(fjwt, {
+  secret: "1234567ihhdhfahf",
+});
 
-})
+server.decorate(
+  "auth",
+  async (request: FastifyRequest, reply: FastifyReply) => {
+    try {
+      await request.jwtVerify();
+    } catch (e) {
+      return reply.send(e);
+    }
+  }
+);
+
+server.get("/healthcheck", async function () {
+  return { status: "okay" };
+});
 
 async function main() {
-    fastify.register(userRoutes,{prefix:'api/users'})
+  for (const schema of userSchemas) {
+    server.addSchema(schema);
+  }
 
-        await fastify.listen({ port: 3000 }, function (err, address) {
-            if (err) {
-                fastify.log.error(err)
-                process.exit(1)
-            } else {
-                console.log('server running at http://localhost:3000')
-            }
-        })
-        
+  server.register(userRoutes, { prefix: "api/users" });
+
+  await server.listen({ port: 3000 }, function (err, address) {
+    if (err) {
+      server.log.error(err);
+      process.exit(1);
+    } else {
+      console.log("server running at http://localhost:3000");
+    }
+  });
 }
 
-main()
+main();
